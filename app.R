@@ -5,7 +5,7 @@ library(colorRamps)
 library(tidyverse)
 library(rgdal)
 
-path_app<-"./"
+path_app<-"/srv/shiny-server/phenoforecast_shinyapp/"
 date_list<-list.files(path_app,pattern =".tif" , recursive=T) %>%
   str_replace(".tif", "") %>%
   str_sub(start= -10) %>%
