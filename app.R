@@ -13,8 +13,8 @@ num_cores<-get_num_procs()-1
 cl <- makeCluster(num_cores, outfile = "")
 registerDoSNOW(cl)
 
-today<-read_file("today.txt") %>% as.Date()
-path_app<-"/srv/shiny-server/phenoforecast_shinyapp/"
+path_data<-"/srv/shiny-server/phenoforecast_shinyapp/data/"
+today<-read_file(paste0(path_app,"today.txt")) %>% as.Date()
 date_list<-seq(today-years(1), today+44, by=1)
 
 genusoi_list <- c(
@@ -30,7 +30,7 @@ names(leaf_sta_list)<-names(flower_sta_list)<-genusoi_list
 
 for (i in 1:length(genusoi_list)){
   genusoi<-genusoi_list[i]
-  path_leaf<-paste0(path_app,genusoi,"/leaf/output/maps")
+  path_leaf<-paste0(path_data,genusoi,"/leaf/")
   leaf_files<-list.files(path_leaf, full.names = T) %>% sort()
   
   leaf_ras_list<-
@@ -46,7 +46,7 @@ for (i in 1:length(genusoi_list)){
 
 for (i in 1:length(genusoi_list)){
   genusoi<-genusoi_list[i]
-  path_flower<-paste0(path_app,genusoi,"/flower/output/maps")
+  path_flower<-paste0(path_data,genusoi,"/flower/")
   flower_files<-list.files(path_flower, full.names = T) %>% sort()
   
   flower_ras_list<-
