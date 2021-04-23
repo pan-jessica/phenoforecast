@@ -4,59 +4,61 @@ library(raster)
 library(colorRamps)
 library(tidyverse)
 library(rgdal)
+library(lubridate)
 library(RhpcBLASctl)
 library(foreach)
 library(doSNOW)
 
-num_cores<-get_num_procs()
+num_cores<-get_num_procs()-1
 cl <- makeCluster(num_cores, outfile = "")
 registerDoSNOW(cl)
 
-
+today<-read_file("today.txt") %>% as.Date()
 path_app<-"/srv/shiny-server/phenoforecast_shinyapp/"
-date_list<-list.files(path_app,pattern =".tif" , recursive=T) %>%
-  str_replace(".tif", "") %>%
-  str_sub(start= -10) %>%
-  unique() %>%
-  as.Date() %>%
-  sort()
-# date_list<-seq(Sys.Date()-years(1), Sys.Date()+44, by=1)
+date_list<-seq(today-years(1), today+44, by=1)
 
 genusoi_list <- c(
   "Quercus", 
   "Betula",
   "Populus",
   "Acer"
-  )
-
-flower_sta_list<-
-foreach (i = 1:length(genusoi_list),
-	 .packages=c("tidyverse","raster")) %dopar% {
-  genusoi<-genusoi_list[i]
-  flower_files<-list.files(paste0(path_app,genusoi, "/flower/"), full.names = T) %>% sort()
-  flower_ras_list<-vector(mode="list")
-  for (r in 1:length(date_list)) {
-    flower_ras_list[[r]] <-raster(flower_files[r])
-  }
-  flower_sta<-stack(flower_ras_list)
-  flower_sta
-}
+)
 
 
-leaf_sta_list<-
-foreach (i = 1:length(genusoi_list),
-         .packages=c("tidyverse","raster")) %dopar% {
-  genusoi<-genusoi_list[i]
-  leaf_files<-list.files(paste0(path_app,genusoi, "/leaf/"), full.names = T) %>% sort()
-  leaf_ras_list<-vector(mode="list")
-  for (r in 1:length(date_list)) {
-    leaf_ras_list[[r]] <-raster(leaf_files[r])
-  }
-  leaf_sta<-stack(leaf_ras_list)
-  leaf_sta
-}
-
+leaf_sta_list<-flower_sta_list<-vector(mode="list",length=length(genusoi_list))
 names(leaf_sta_list)<-names(flower_sta_list)<-genusoi_list
+
+for (i in 1:length(genusoi_list)){
+  genusoi<-genusoi_list[i]
+  path_leaf<-paste0(path_app,genusoi,"/leaf/output/maps")
+  leaf_files<-list.files(path_leaf, full.names = T) %>% sort()
+  
+  leaf_ras_list<-
+    foreach (r = 1:length(date_list),
+             .packages=c("tidyverse","raster"))  %dopar%  {
+               ras<-raster(leaf_files[r])
+               print(r)
+               ras
+             }
+  leaf_sta<-stack(leaf_ras_list)
+  leaf_sta_list[[i]]<-leaf_sta
+}
+
+for (i in 1:length(genusoi_list)){
+  genusoi<-genusoi_list[i]
+  path_flower<-paste0(path_app,genusoi,"/flower/output/maps")
+  flower_files<-list.files(path_flower, full.names = T) %>% sort()
+  
+  flower_ras_list<-
+    foreach (r = 1:length(date_list),
+             .packages=c("tidyverse","raster"))  %dopar%  {
+               ras<-raster(flower_files[r])
+               print(r)
+               ras
+             }
+  flower_sta<-stack(flower_ras_list)
+  flower_sta_list[[i]]<-flower_sta
+}
 
 sta_list<-list(Leaf=leaf_sta_list,Flower=flower_sta_list)
 
@@ -71,8 +73,8 @@ variable_list<-list(Leaf="Enhanced Vegetation Index",
 ############################
 ui<-fillPage(
   tags$style(type = "text/css", 
-              "html, body {width:100%; height:100%;}"
-             ),
+             "html, body {width:100%; height:100%;}"
+  ),
   
   leafletOutput("raster_map", height="100%",width="100%"),
   
@@ -109,7 +111,7 @@ ui<-fillPage(
                 
                 # h4("Temporal patterns"),
                 plotOutput("lineplot", height = 200),
-
+                
                 tags$a( href="https://twitter.com/intent/tweet?button_hashtag=phenology&ref_src=twsrc%5Etfw",
                         class="twitter-hashtag-button",
                         "data-size"="large",
@@ -118,7 +120,7 @@ ui<-fillPage(
                 tags$script(async=NA,
                             src="https://platform.twitter.com/widgets.js",
                             charset="utf-8")
-
+                
                 # includeScript("http://platform.twitter.com/widgets.js"),
                 # https://shiny.rstudio.com/articles/html-tags.html
                 # https://community.rstudio.com/t/include-a-button-in-a-shiny-app-to-tweet-the-url-to-the-app/8113/2
@@ -132,7 +134,7 @@ ui<-fillPage(
                 style = "background-color: rgba(255,255,255,1);
                 border-color: rgba(255,255,255,0);
                 box-shadow: 0pt 0pt 0pt 0px",
-
+                
                 tags$script(src="https://apps.elfsight.com/p/platform.js",
                             defer=NA),
                 # includeScript("https://apps.elfsight.com/p/platform.js"), # this causes the app to crash
@@ -161,7 +163,7 @@ server<-function(input, output){
     )  
     
     site_label<-tags$div(id="cite",
-             '', tags$em('"PhenoForecast"'), ' by Yiluan Song'
+                         '', tags$em('"PhenoForecast"'), ' by Yiluan Song'
     )
     
     reactiveRaster <- reactive({r_type_genusoi_date})
@@ -276,13 +278,13 @@ server<-function(input, output){
     sp<-SpatialPoints(cbind(lng, lat),proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 "))
     
     ts<-
-foreach(i = 1:length(date_list),
-.packages=(c("raster","tidyverse")),
-.combine="rbind") %dopar% {
- value<-raster::extract(r_type_genusoi[[i]], sp )
-value
-}
-
+      foreach(i = 1:length(date_list),
+              .packages=(c("raster","tidyverse")),
+              .combine="rbind") %dopar% {
+                value<-raster::extract(r_type_genusoi[[i]], sp )
+                value
+              }
+    
     ts_df<-data.frame(ts, date_list)
     colnames(ts_df)<-c("value", "date")
     if (nrow (ts_df)>0) {
