@@ -4,6 +4,14 @@ library(raster)
 library(colorRamps)
 library(tidyverse)
 library(rgdal)
+library(RhpcBLASctl)
+library(foreach)
+library(doSNOW)
+
+num_cores<-get_num_procs()
+cl <- makeCluster(num_cores, outfile = "")
+registerDoSNOW(cl)
+
 
 path_app<-"/srv/shiny-server/phenoforecast_shinyapp/"
 date_list<-list.files(path_app,pattern =".tif" , recursive=T) %>%
@@ -21,9 +29,23 @@ genusoi_list <- c(
   "Acer"
   )
 
-leaf_sta_list<-flower_sta_list<-vector(mode="list",length=length(genusoi_list))
-names(leaf_sta_list)<-names(flower_sta_list)<-genusoi_list
-for (i in 1:length(genusoi_list)) {
+flower_sta_list<-
+foreach (i = 1:length(genusoi_list),
+	 .packages=c("tidyverse","raster")) %dopar% {
+  genusoi<-genusoi_list[i]
+  flower_files<-list.files(paste0(path_app,genusoi, "/flower/"), full.names = T) %>% sort()
+  flower_ras_list<-vector(mode="list")
+  for (r in 1:length(date_list)) {
+    flower_ras_list[[r]] <-raster(flower_files[r])
+  }
+  flower_sta<-stack(flower_ras_list)
+  flower_sta
+}
+
+
+leaf_sta_list<-
+foreach (i = 1:length(genusoi_list),
+         .packages=c("tidyverse","raster")) %dopar% {
   genusoi<-genusoi_list[i]
   leaf_files<-list.files(paste0(path_app,genusoi, "/leaf/"), full.names = T) %>% sort()
   leaf_ras_list<-vector(mode="list")
@@ -31,16 +53,10 @@ for (i in 1:length(genusoi_list)) {
     leaf_ras_list[[r]] <-raster(leaf_files[r])
   }
   leaf_sta<-stack(leaf_ras_list)
-  leaf_sta_list[[i]]<-leaf_sta
-  
-  flower_files<-list.files(paste0(path_app,genusoi, "/flower/"), full.names = T) %>% sort()
-  flower_ras_list<-vector(mode="list")
-  for (r in 1:length(date_list)) {
-    flower_ras_list[[r]] <-raster(flower_files[r])
-  }
-  flower_sta<-stack(flower_ras_list)
-  flower_sta_list[[i]]<-flower_sta
+  leaf_sta
 }
+
+names(leaf_sta_list)<-names(flower_sta_list)<-genusoi_list
 
 sta_list<-list(Leaf=leaf_sta_list,Flower=flower_sta_list)
 
@@ -258,8 +274,16 @@ server<-function(input, output){
     lng<-(180+click$lng)%%360-180
     
     sp<-SpatialPoints(cbind(lng, lat),proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 "))
-    ts<-raster::extract(r_type_genusoi, sp )
-    ts_df<-data.frame(t(ts), date_list)
+    
+    ts<-
+foreach(i = 1:length(date_list),
+.packages=(c("raster","tidyverse")),
+.combine="rbind") %dopar% {
+ value<-raster::extract(r_type_genusoi[[i]], sp )
+value
+}
+
+    ts_df<-data.frame(ts, date_list)
     colnames(ts_df)<-c("value", "date")
     if (nrow (ts_df)>0) {
       output$lineplot <- renderPlot({
