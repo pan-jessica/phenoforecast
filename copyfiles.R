@@ -14,7 +14,8 @@ genusoi_list <- c(
 
 for (i in 1:length(genusoi_list)){
   genusoi<-genusoi_list[i]
-  copyDirectory(from=paste0(path_data,genusoi, "/leaf/output/maps"), to=paste0(path_shiny,"/",genusoi, "/leaf"))
-  copyDirectory(from=paste0(path_data,genusoi, "/flower/output/maps"), to=paste0(path_shiny,"/",genusoi, "/flower"))
+  unlink(paste0(path_shiny,"/data/",genusoi,"/"))
+  copyDirectory(from=paste0(path_data,genusoi, "/leaf/output/maps"), to=paste0(path_shiny,"/data/",genusoi, "/leaf"))
+  copyDirectory(from=paste0(path_data,genusoi, "/flower/output/maps"), to=paste0(path_shiny,"/data/",genusoi, "/flower"))
 }
 
