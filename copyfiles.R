@@ -1,4 +1,6 @@
 library(R.utils)
+
+today<-read_file("today.txt") %>% as.Date()
 path_data<-paste0("/srv/shiny-server/phenoforecast_shinyapp/vmdata/archive/",today,"/")
 path_shiny<-("/srv/shiny-server/phenoforecast_shinyapp")
 
