@@ -1,9 +1,9 @@
 library(R.utils)
 library(tidyverse)
 
-today<-read_file("today.txt") %>% as.Date()
-path_data<-paste0("/srv/shiny-server/phenoforecast_shinyapp/vmdata/archive/",today,"/")
-path_shiny<-("/srv/shiny-server/phenoforecast_shinyapp")
+path_shiny<-("/srv/shiny-server/phenoforecast_shinyapp/")
+today<-read_file(paste0(path_shiny,"today.txt")) %>% as.Date()
+path_data<-paste0(path_shiny,"vmdata/archive/",today,"/")
 
 genusoi_list <- c(
   "Quercus", 
