@@ -15,7 +15,7 @@ registerDoSNOW(cl)
 
 path_app<-"/srv/shiny-server/phenoforecast_shinyapp/"
 today<-read_file(paste0(path_app,"today.txt")) %>% as.Date()
-date_list<-seq(today-years(1), today+44, by=1)
+date_list<-seq(today-years(1), today+14, by=1)
 
 genusoi_list <- c(
   "Quercus", 
@@ -25,8 +25,24 @@ genusoi_list <- c(
 )
 
 
-leaf_sta_list<-flower_sta_list<-vector(mode="list",length=length(genusoi_list))
-names(leaf_sta_list)<-names(flower_sta_list)<-genusoi_list
+evi_sta_list<-leaf_sta_list<-flower_sta_list<-vector(mode="list",length=length(genusoi_list))
+names(evi_sta_list)<-names(leaf_sta_list)<-names(flower_sta_list)<-genusoi_list
+
+for (i in 1:length(genusoi_list)){
+  genusoi<-genusoi_list[i]
+  path_evi<-paste0(path_app,"data/",genusoi,"/evi/")
+  evi_files<-list.files(path_evi, full.names = T) %>% sort()
+  
+  evi_ras_list<-
+    foreach (r = 1:length(date_list),
+             .packages=c("tidyverse","raster"))  %dopar%  {
+               ras<-raster(evi_files[r])
+               print(r)
+               ras
+             }
+  evi_sta<-stack(evi_ras_list)
+  evi_sta_list[[i]]<-evi_sta
+}
 
 for (i in 1:length(genusoi_list)){
   genusoi<-genusoi_list[i]
@@ -63,12 +79,14 @@ for (i in 1:length(genusoi_list)){
 sta_list<-list(Leaf=leaf_sta_list,Flower=flower_sta_list)
 
 ####
+pal_evi<-colorNumeric(palette = "Greens",  domain = c(0,1), na.color = "transparent")
 pal_leaf<-colorNumeric(palette = "Greens",  domain = c(0,1), na.color = "transparent")
 pal_flower<-colorNumeric(palette = "Reds",  domain = c(0,1), na.color = "transparent")
-pal<-list(Leaf=pal_leaf, Flower=pal_flower)
+pal<-list(EVI=pal_evi, Leaf=pal_leaf, Flower=pal_flower)
 
-variable_list<-list(Leaf="Enhanced Vegetation Index",
-                    Flower="Flowering intensity")
+variable_list<-list(EVI="Enhanced Vegetation Index",
+                    Leaf="Leafing status",
+                    Flower="Flowering status")
 
 ############################
 ui<-fillPage(
@@ -88,15 +106,15 @@ ui<-fillPage(
                 box-shadow: 0pt 0pt 0pt 0px",
                 
                 selectInput("type", "Type",
-                            choices = c("Leaf", "Flower"),
-                            selected =  "Leaf"),
+                            choices = c("EVI","Leaf", "Flower"),
+                            selected =  "EVI"),
                 
                 selectInput("genus", "Genus",
                             choices = genusoi_list,
                             selected = genusoi_list[1]),
                 
                 # sliderInput("date", "Date", min=mindate, max=maxdate, timeFormat = "%Y-%m-%d", value=1, ticks=T),
-                sliderInput("day", "Day", min=44-length(date_list)+1, max=44, value=0, ticks=T)
+                sliderInput("day", "Day", min=14-length(date_list)+1, max=14, value=0, ticks=T)
                 # If not using custom CSS, set height of leafletOutput to a number instead of percent     
   ),
   
@@ -157,9 +175,9 @@ server<-function(input, output){
   observe({
     r_type<-sta_list[[input$type,drop=F]]
     r_type_genusoi<-r_type[[input$genus]]
-    r_type_genusoi_date<-r_type_genusoi[[input$day-44+length(date_list)]]
+    r_type_genusoi_date<-r_type_genusoi[[input$day-14+length(date_list)]]
     date_label <- tags$div(
-      date_list[input$day-44+length(date_list)]
+      date_list[input$day-14+length(date_list)]
     )  
     
     site_label<-tags$div(id="cite",
@@ -183,7 +201,7 @@ server<-function(input, output){
   observeEvent(input$raster_map_click, {
     r_type<-sta_list[[input$type,drop=F]]
     r_type_genusoi<-r_type[[input$genus]]
-    r_type_genusoi_date<-r_type_genusoi[[input$day-44+length(date_list)]]
+    r_type_genusoi_date<-r_type_genusoi[[input$day-14+length(date_list)]]
     variable<-variable_list[[input$type]]
     
     click <- input$raster_map_click
@@ -191,7 +209,7 @@ server<-function(input, output){
     lng<-(180+click$lng)%%360-180
     text_lat<-paste0("Latitude: ", round(lat,2))
     text_lng<-paste0("Longtitude: ", round(lng,2))
-    text_date<-paste0("Date: ", date_list[[input$day-44+length(date_list)]])
+    text_date<-paste0("Date: ", date_list[[input$day-14+length(date_list)]])
     value<-round(raster::extract(r_type_genusoi_date,data.frame(lng,lat)),2)
     text_value<-paste0(variable,": ", value,"")
     
@@ -207,62 +225,11 @@ server<-function(input, output){
       addPopups(click$lng, click$lat, content)
   })
   
-  # #Neighbours
-  # observeEvent(input$raster_map_click, {
-  #   r_type<-sta_list[[input$type,drop=F]]
-  #   r_type_genusoi<-r_type[[input$genus]]
-  #   r_type_genusoi_date<-r_type_genusoi[[input$day-44+length(date_list)]]
-  #   variable<-variable_list[[input$type]]
-  #   if(input$type=="Leaf") {
-  #     col_nei<-"viridis"
-  #     col_dir<-1
-  #   }
-  #   if (input$type=="Flower") {
-  #     col_nei<-"magma"
-  #     col_dir<--1
-  #   }
-  #   
-  #   click <- input$raster_map_click
-  #   lat<-(90+click$lat)%%180-90
-  #   lng<-(180+click$lng)%%360-180
-  #   # xcoor<-round((lng - 0.05) * 2) / 2 + 0.05
-  #   # ycoor<-round((lat - 0.05) * 2) / 2 + 0.05
-  #   
-  #   # sp<-SpatialPoints(cbind(lng, lat),proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 "))
-  #   e<-extent(lng-0.5, lng+0.5, lat-0.5, lat+0.5)
-  #   map_subset<-crop(r_type_genusoi_date, e)
-  #   map_subset_df<-as.data.frame(map_subset, xy=T)
-  #   colnames(map_subset_df)<-c("lon", "lat", "value")
-  #   # map_subset_df<-map_subset_df%>%
-  #   # mutate(color=pal_leaf[[input$type]](value)) %>%
-  #   # mutate(fct=as.factor(row_number()))
-  #   
-  #   output$neighbours <- renderPlot({
-  #     ggplot(map_subset_df)+
-  #       geom_tile(aes(x=lon, y=lat, fill=value))+
-  #       # scale_fill_manual(values=map_subset_leaf_df$color)+
-  #       scale_fill_viridis_c(option=col_nei,
-  #                            direction=col_dir)+
-  #       theme_light()+
-  #       xlab("")+
-  #       ylab("")+
-  #       theme(legend.position="bottom")+
-  #       guides(fill = guide_colourbar(title=variable,
-  #                                     title.position="bottom",
-  #                                     title.hjust = 0.5,
-  #                                     direction="horizontal",
-  #                                     barheight = 2,
-  #                                     barwidth =  16))+
-  #       coord_equal()+
-  #       ggtitle(paste0("Date: ", date_list[input$day-44+length(date_list)]))
-  #   })
-  # })
-  
   #Lineplot
   observeEvent(input$raster_map_click, {
     r_type<-sta_list[[input$type,drop=F]]
     r_type_genusoi<-r_type[[input$genus]]
-    # r_type_genusoi_date<-r_type_genusoi[[input$day-44+length(date_list)]]
+    # r_type_genusoi_date<-r_type_genusoi[[input$day-14+length(date_list)]]
     variable<-variable_list[[input$type]]
     if(input$type=="Leaf") {
       col_line<-"dark green"
@@ -291,8 +258,8 @@ server<-function(input, output){
       output$lineplot <- renderPlot({
         ggplot(ts_df)+
           geom_line(aes(x=date, y=value),col=col_line)+
-          geom_vline(aes(xintercept=date_list[input$day-44+length(date_list)]))+
-          geom_vline(aes(xintercept=date_list[0-44+length(date_list)]), alpha=0.5)+
+          geom_vline(aes(xintercept=date_list[input$day-14+length(date_list)]))+
+          geom_vline(aes(xintercept=date_list[0-14+length(date_list)]), alpha=0.5)+
           # geom_smooth(aes(x=date, y=value))+
           theme_light()+
           ylim(-0.1,1.1)+
