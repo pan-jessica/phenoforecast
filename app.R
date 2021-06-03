@@ -10,6 +10,7 @@ library(foreach)
 library(doSNOW)
 library(shinyscreenshot)
 library(digest)
+library(shinyjs)
 
 num_cores<-get_num_procs()-1
 cl <- makeCluster(num_cores, outfile = "")
@@ -94,6 +95,8 @@ variable_list<-list(EVI="Enhanced Vegetation Index",
 
 ############################
 ui<-fillPage(
+    shinyjs::useShinyjs(),
+    #shinyjs::inlineCSS(appCSS),
   tags$style(type = "text/css", 
              "html, body {width:100%; height:100%;}"
   ),
@@ -109,6 +112,7 @@ ui<-fillPage(
                 border-color: rgba(255,255,255,0);
                 box-shadow: 0pt 0pt 0pt 0px",
                 
+                h1(id="title","PhenoForecast"),
                 selectInput("type", "Type",
                             choices = c("EVI","Leaf", "Flower"),
                             selected =  "EVI"),
@@ -137,33 +141,51 @@ ui<-fillPage(
                 
   ),
   
-  absolutePanel(id = "tweet",
+  
+  absolutePanel(id = "tweetfeed_shown",
                 class = "panel panel-default",
                 fixed = TRUE,draggable = TRUE,
-                top = 60+280, left = "auto", right = 60, bottom = "auto",
-                width = 300, height = "auto",
-                style = "background-color: rgba(255,255,255,1);
+                top = "auto", left = 100, right = "auto", bottom = 10,
+                width = 300, height = 300,
+                style = "background-color: rgba(255,255,255,0);
                 border-color: rgba(255,255,255,0);
                 box-shadow: 0pt 0pt 0pt 0px",
                 
                 tags$script(src="https://apps.elfsight.com/p/platform.js",
                             defer=NA),
                 # includeScript("https://apps.elfsight.com/p/platform.js"), # this causes the app to crash
-                tags$div(class = "elfsight-app-ab030cd9-764d-413a-9cfa-0e630029053f")
+                tags$div(class = "elfsight-app-ab030cd9-764d-413a-9cfa-0e630029053f"),
+                actionButton("hidetweet", "Hide Twitter feed", class = "btn-primary")
                 
-  ),
-  
-  absolutePanel(id = "misc",
+  )
+  ,
+  shinyjs::hidden(
+  absolutePanel(id = "tweetfeed_hidden",
                 class = "panel panel-default",
                 fixed = TRUE,draggable = FALSE,
-                top = "auto", left = "auto", right = 60, bottom = 60,
+                top = "auto", left = 100, right = "auto", bottom = 10,
                 width = 300, height = "auto",
                 style = "background-color: rgba(255,255,255,0);
                 border-color: rgba(255,255,255,0);
                 box-shadow: 0pt 0pt 0pt 0px",
                 
+                actionButton("showtweet", "Show Twitter feed", class = "btn-primary")
                 
-                actionButton("go", "Take a screenshot", class = "btn-primary")), 
+  )
+  ),
+  
+  absolutePanel(id = "misc",
+                class = "panel panel-default",
+                fixed = TRUE,draggable = FALSE,
+                top = "auto", left = "auto", right = 60, bottom = 30,
+                width = 250, height = "auto",
+                style = "background-color: rgba(255,255,255,0);
+                text-align: right;
+                border-color: rgba(255,255,255,0);
+                box-shadow: 0pt 0pt 0pt 0px",
+                
+                
+                actionButton("go", "Take a screenshot", class = "btn-primary"), 
                 tags$a( href="https://twitter.com/intent/tweet?button_hashtag=phenology&ref_src=twsrc%5Etfw",
                         class="twitter-hashtag-button",
                         "data-size"="large",
@@ -187,8 +209,7 @@ id="linktext",align="right",
                  'Visit ', tags$em('"PhenoObservers"'), ''
 )
 )
-                
-  )
+)
   # absolutePanel(id = "figures2", class = "panel panel-default", fixed = TRUE,draggable = TRUE, top = 60+280, left = "auto", right = 60, bottom = "auto",width = 300, height = "auto", 
   #               
   #               # h4("Spatial patterns"),
@@ -306,6 +327,16 @@ server<-function(input, output){
     
   })
   
+  observeEvent(input$showtweet, {
+      shinyjs::hide("tweetfeed_hidden")
+      shinyjs::show("tweetfeed_shown")
+    })
+    
+    observeEvent(input$hidetweet, {
+    shinyjs::hide("tweetfeed_shown")
+      shinyjs::show("tweetfeed_hidden")
+    })
+    
   formData <- reactive({
       data <- c(input$type, input$genus, input$day,as.character(Sys.time()))
       data
