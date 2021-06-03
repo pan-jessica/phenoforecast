@@ -76,7 +76,7 @@ for (i in 1:length(genusoi_list)){
   flower_sta_list[[i]]<-flower_sta
 }
 
-sta_list<-list(Leaf=leaf_sta_list,Flower=flower_sta_list)
+sta_list<-list(EVI=evi_sta_list,Leaf=leaf_sta_list,Flower=flower_sta_list)
 
 ####
 pal_evi<-colorNumeric(palette = "Greens",  domain = c(0,1), na.color = "transparent")
@@ -231,6 +231,9 @@ server<-function(input, output){
     r_type_genusoi<-r_type[[input$genus]]
     # r_type_genusoi_date<-r_type_genusoi[[input$day-14+length(date_list)]]
     variable<-variable_list[[input$type]]
+    if(input$type=="EVI") {
+      col_line<-"dark green"
+    }
     if(input$type=="Leaf") {
       col_line<-"dark green"
     }
