@@ -8,6 +8,8 @@ library(lubridate)
 library(RhpcBLASctl)
 library(foreach)
 library(doSNOW)
+library(shinyscreenshot)
+library(digest)
 
 num_cores<-get_num_procs()-1
 cl <- makeCluster(num_cores, outfile = "")
@@ -16,6 +18,8 @@ registerDoSNOW(cl)
 path_app<-"/srv/shiny-server/phenoforecast_shinyapp/"
 today<-read_file(paste0(path_app,"today.txt")) %>% as.Date()
 date_list<-seq(today-years(1), today+14, by=1)
+
+humanTime <- function() format(Sys.time(), "%Y%m%d-%H%M%OS")
 
 genusoi_list <- c(
   "Quercus", 
@@ -128,20 +132,9 @@ ui<-fillPage(
                 box-shadow: 0pt 0pt 0pt 0px",
                 
                 # h4("Temporal patterns"),
-                plotOutput("lineplot", height = 200),
+                plotOutput("lineplot", height = 200)
                 
-                tags$a( href="https://twitter.com/intent/tweet?button_hashtag=phenology&ref_src=twsrc%5Etfw",
-                        class="twitter-hashtag-button",
-                        "data-size"="large",
-                        "data-show-count"="false",
-                        "Tweet #phenology"),
-                tags$script(async=NA,
-                            src="https://platform.twitter.com/widgets.js",
-                            charset="utf-8")
                 
-                # includeScript("http://platform.twitter.com/widgets.js"),
-                # https://shiny.rstudio.com/articles/html-tags.html
-                # https://community.rstudio.com/t/include-a-button-in-a-shiny-app-to-tweet-the-url-to-the-app/8113/2
   ),
   
   absolutePanel(id = "tweet",
@@ -157,6 +150,43 @@ ui<-fillPage(
                             defer=NA),
                 # includeScript("https://apps.elfsight.com/p/platform.js"), # this causes the app to crash
                 tags$div(class = "elfsight-app-ab030cd9-764d-413a-9cfa-0e630029053f")
+                
+  ),
+  
+  absolutePanel(id = "misc",
+                class = "panel panel-default",
+                fixed = TRUE,draggable = FALSE,
+                top = "auto", left = "auto", right = 60, bottom = 60,
+                width = 300, height = "auto",
+                style = "background-color: rgba(255,255,255,0);
+                border-color: rgba(255,255,255,0);
+                box-shadow: 0pt 0pt 0pt 0px",
+                
+                
+                actionButton("go", "Take a screenshot", class = "btn-primary")), 
+                tags$a( href="https://twitter.com/intent/tweet?button_hashtag=phenology&ref_src=twsrc%5Etfw",
+                        class="twitter-hashtag-button",
+                        "data-size"="large",
+                        "data-show-count"="false",
+                        "Tweet #phenology"),
+                tags$script(async=NA,
+                            src="https://platform.twitter.com/widgets.js",
+                            charset="utf-8"),
+                
+                # includeScript("http://platform.twitter.com/widgets.js"),
+                # https://shiny.rstudio.com/articles/html-tags.html
+                # https://community.rstudio.com/t/include-a-button-in-a-shiny-app-to-tweet-the-url-to-the-app/8113/2
+                
+                tags$div(id="cite",align="right",
+                         '', tags$em('"PhenoForecast"'), ' by Yiluan Song'
+    ),
+    tags$a (id="link",target="_blank",
+href="http://52.150.17.142:3838/pheno_submit/",
+tags$div (
+id="linktext",align="right",
+                 'Visit ', tags$em('"PhenoObservers"'), ''
+)
+)
                 
   )
   # absolutePanel(id = "figures2", class = "panel panel-default", fixed = TRUE,draggable = TRUE, top = 60+280, left = "auto", right = 60, bottom = "auto",width = 300, height = "auto", 
@@ -180,10 +210,6 @@ server<-function(input, output){
       date_list[input$day-14+length(date_list)]
     )  
     
-    site_label<-tags$div(id="cite",
-                         '', tags$em('"PhenoForecast"'), ' by Yiluan Song'
-    )
-    
     reactiveRaster <- reactive({r_type_genusoi_date})
     leafletProxy("raster_map") %>%
       clearImages() %>%
@@ -193,8 +219,8 @@ server<-function(input, output){
                 position = "bottomleft",title = "",#variable_list[[input$type]],
                 layerId = "map"
       ) %>% 
-      addControl(date_label, position = "bottomleft") %>% 
-      addControl(site_label, position = "bottomright")
+      addControl(date_label, position = "bottomleft") # %>% 
+      # addControl(site_label, position = "bottomright")
   })
   
   #Show popup on click
@@ -279,6 +305,18 @@ server<-function(input, output){
     }
     
   })
+  
+  formData <- reactive({
+      data <- c(input$type, input$genus, input$day,as.character(Sys.time()))
+      data
+    })
+    
+  observeEvent(input$go, {
+      fileName <- sprintf("%s_%s",
+                          humanTime(),
+                          digest::digest(formData()))
+      shinyscreenshot::screenshot(filename=fileName)
+    })
 }
 
 
