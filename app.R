@@ -16,7 +16,7 @@ num_cores<-get_num_procs()-1
 cl <- makeCluster(num_cores, outfile = "")
 registerDoSNOW(cl)
 
-path_app<-"/srv/shiny-server/phenoforecast_shinyapp/"
+path_app<-"/srv/shiny-server/phenoforecast/"
 today<-read_file(paste0(path_app,"today.txt")) %>% as.Date()
 date_list<-seq(today-years(1), today+14, by=1)
 
@@ -203,10 +203,17 @@ ui<-fillPage(
                          '', tags$em('"PhenoForecast"'), ' by Yiluan Song'
     ),
     tags$a (id="link",target="_blank",
-href="http://52.150.17.142:3838/pheno_submit/",
+href="http://phenoobservers.ucsc.edu/phenowatch/",
 tags$div (
 id="linktext",align="right",
-                 'Visit ', tags$em('"PhenoObservers"'), ''
+                 'Visit ', tags$em('"PhenoWatch"'), ''
+)
+),
+tags$a (id="link",target="_blank",
+href="http://phenoobservers.ucsc.edu/phenoinfo/",
+tags$div (
+id="linktext",align="right",
+                 'Visit ', tags$em('"PhenoInfo"'), ''
 )
 )
 )
