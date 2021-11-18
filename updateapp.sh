@@ -1,5 +1,7 @@
 #!/bin/bash
 cd /srv/shiny-server/phenoforecast/
+sudo chmod 777 /srv/shiny-server -R
+
 OLD_HEAD=$(sudo git rev-parse HEAD)
 sudo git pull
 NEW_HEAD=$(sudo git rev-parse HEAD)
