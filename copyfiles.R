@@ -1,5 +1,7 @@
-library(R.utils)
-library(tidyverse)
+install.packages(setdiff("pacman", rownames(installed.packages())))
+library(pacman)
+p_load(R.utils)
+p_load(tidyverse)
 
 path_shiny<-("/srv/shiny-server/phenoforecast/")
 today<-read_file(paste0(path_shiny,"today.txt")) %>% as.Date()
