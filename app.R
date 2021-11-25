@@ -38,7 +38,7 @@ names(evi_sta_list)<-names(leaf_sta_list)<-names(flower_sta_list)<-genusoi_list
 for (i in 1:length(genusoi_list)){
   genusoi<-genusoi_list[i]
   path_evi<-paste0(path_app,"data/",genusoi,"/evi/")
-  evi_files<-list.files(path_evi, full.names = T) %>% sort()
+  evi_files<-list.files(path_evi, full.names = T, pattern="\\.tif$") %>% sort()
   
   evi_ras_list<-
     foreach (r = 1:length(date_list),
@@ -54,7 +54,7 @@ for (i in 1:length(genusoi_list)){
 for (i in 1:length(genusoi_list)){
   genusoi<-genusoi_list[i]
   path_leaf<-paste0(path_app,"data/",genusoi,"/leaf/")
-  leaf_files<-list.files(path_leaf, full.names = T) %>% sort()
+  leaf_files<-list.files(path_leaf, full.names = T, pattern="\\.tif$") %>% sort()
   
   leaf_ras_list<-
     foreach (r = 1:length(date_list),
@@ -70,7 +70,7 @@ for (i in 1:length(genusoi_list)){
 for (i in 1:length(genusoi_list)){
   genusoi<-genusoi_list[i]
   path_flower<-paste0(path_app,"data/",genusoi,"/flower/")
-  flower_files<-list.files(path_flower, full.names = T) %>% sort()
+  flower_files<-list.files(path_flower, full.names = T, pattern="\\.tif$") %>% sort()
   
   flower_ras_list<-
     foreach (r = 1:length(date_list),
