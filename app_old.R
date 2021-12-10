@@ -32,8 +32,8 @@ genusoi_list <- c(
 )
 
 
-evi_sta_list<-leaf_sta_list<-flower_sta_list<-pollen_sta_list<-vector(mode="list",length=length(genusoi_list))
-names(evi_sta_list)<-names(leaf_sta_list)<-names(flower_sta_list)<-names(pollen_sta_list)<-genusoi_list
+evi_sta_list<-leaf_sta_list<-flower_sta_list<-vector(mode="list",length=length(genusoi_list))
+names(evi_sta_list)<-names(leaf_sta_list)<-names(flower_sta_list)<-genusoi_list
 
 for (i in 1:length(genusoi_list)){
   genusoi<-genusoi_list[i]
@@ -83,40 +83,22 @@ for (i in 1:length(genusoi_list)){
   flower_sta_list[[i]]<-flower_sta
 }
 
-for (i in 1:length(genusoi_list)){
-  genusoi<-genusoi_list[i]
-  path_pollen<-paste0(path_app,"data/",genusoi,"/pollen/")
-  pollen_files<-list.files(path_pollen, full.names = T, pattern="\\.tif$") %>% sort()
-  
-  pollen_ras_list<-
-    foreach (r = 1:length(date_list),
-             .packages=c("tidyverse","raster"))  %dopar%  {
-               ras<-raster(pollen_files[r])
-               print(r)
-               ras
-             }
-  pollen_sta<-stack(pollen_ras_list)
-  pollen_sta_list[[i]]<-pollen_sta
-}
-
-sta_list<-list(EVI=evi_sta_list,Leaf=leaf_sta_list,Flower=flower_sta_list, Pollen=pollen_sta_list)
+sta_list<-list(EVI=evi_sta_list,Leaf=leaf_sta_list,Flower=flower_sta_list)
 
 ####
 pal_evi<-colorNumeric(palette = "Greens",  domain = c(0,1), na.color = "transparent")
 pal_leaf<-colorNumeric(palette = "Greens",  domain = c(0,1), na.color = "transparent")
 pal_flower<-colorNumeric(palette = "Reds",  domain = c(0,1), na.color = "transparent")
-pal_pollen<-colorNumeric(palette = "Reds",  domain = c(0,1), na.color = "transparent")
-pal<-list(EVI=pal_evi, Leaf=pal_leaf, Flower=pal_flower, Pollen=pal_pollen)
+pal<-list(EVI=pal_evi, Leaf=pal_leaf, Flower=pal_flower)
 
 variable_list<-list(EVI="Enhanced Vegetation Index",
                     Leaf="Leafing status",
-                    Flower="Flowering status",
-                    Pollen="Pollen concentration")
+                    Flower="Flowering status")
 
 ############################
 ui<-fillPage(
-  shinyjs::useShinyjs(),
-  #shinyjs::inlineCSS(appCSS),
+    shinyjs::useShinyjs(),
+    #shinyjs::inlineCSS(appCSS),
   tags$style(type = "text/css", 
              "html, body {width:100%; height:100%;}"
   ),
@@ -134,7 +116,7 @@ ui<-fillPage(
                 
                 h1(id="title","PhenoForecast"),
                 selectInput("type", "Type",
-                            choices = c("EVI","Leaf", "Flower", "Pollen"),
+                            choices = c("EVI","Leaf", "Flower"),
                             selected =  "EVI"),
                 
                 selectInput("genus", "Genus",
@@ -180,18 +162,18 @@ ui<-fillPage(
   )
   ,
   shinyjs::hidden(
-    absolutePanel(id = "tweetfeed_hidden",
-                  class = "panel panel-default",
-                  fixed = TRUE,draggable = FALSE,
-                  top = "auto", left = 100, right = "auto", bottom = 10,
-                  width = 300, height = "auto",
-                  style = "background-color: rgba(255,255,255,0);
+  absolutePanel(id = "tweetfeed_hidden",
+                class = "panel panel-default",
+                fixed = TRUE,draggable = FALSE,
+                top = "auto", left = 100, right = "auto", bottom = 10,
+                width = 300, height = "auto",
+                style = "background-color: rgba(255,255,255,0);
                 border-color: rgba(255,255,255,0);
                 box-shadow: 0pt 0pt 0pt 0px",
-                  
-                  actionButton("showtweet", "Show Twitter feed", class = "btn-primary")
-                  
-    )
+                
+                actionButton("showtweet", "Show Twitter feed", class = "btn-primary")
+                
+  )
   ),
   
   absolutePanel(id = "misc",
@@ -221,22 +203,22 @@ ui<-fillPage(
                 
                 tags$div(id="cite",align="right",
                          '', tags$em('"PhenoForecast"'), ' by Yiluan Song'
-                ),
-                tags$a (id="link",target="_blank",
-                        href="http://phenoobservers.ucsc.edu/phenowatch/",
-                        tags$div (
-                          id="linktext",align="right",
-                          'Visit ', tags$em('"PhenoWatch"'), ''
-                        )
-                ),
-                tags$a (id="link",target="_blank",
-                        href="http://phenoobservers.ucsc.edu/phenoinfo/",
-                        tags$div (
-                          id="linktext",align="right",
-                          'Visit ', tags$em('"PhenoInfo"'), ''
-                        )
-                )
-  )
+    ),
+    tags$a (id="link",target="_blank",
+href="http://phenoobservers.ucsc.edu/phenowatch/",
+tags$div (
+id="linktext",align="right",
+                 'Visit ', tags$em('"PhenoWatch"'), ''
+)
+),
+tags$a (id="link",target="_blank",
+href="http://phenoobservers.ucsc.edu/phenoinfo/",
+tags$div (
+id="linktext",align="right",
+                 'Visit ', tags$em('"PhenoInfo"'), ''
+)
+)
+)
   # absolutePanel(id = "figures2", class = "panel panel-default", fixed = TRUE,draggable = TRUE, top = 60+280, left = "auto", right = 60, bottom = "auto",width = 300, height = "auto", 
   #               
   #               # h4("Spatial patterns"),
@@ -268,7 +250,7 @@ server<-function(input, output){
                 layerId = "map"
       ) %>% 
       addControl(date_label, position = "bottomleft") # %>% 
-    # addControl(site_label, position = "bottomright")
+      # addControl(site_label, position = "bottomright")
   })
   
   #Show popup on click
@@ -314,9 +296,6 @@ server<-function(input, output){
     if (input$type=="Flower") {
       col_line<-"red"
     }
-    if (input$type=="Pollen") {
-      col_line<-"red"
-    }
     
     click <- input$raster_map_click
     lat<-(90+click$lat)%%180-90
@@ -358,26 +337,26 @@ server<-function(input, output){
   })
   
   observeEvent(input$showtweet, {
-    shinyjs::hide("tweetfeed_hidden")
-    shinyjs::show("tweetfeed_shown")
-  })
-  
-  observeEvent(input$hidetweet, {
+      shinyjs::hide("tweetfeed_hidden")
+      shinyjs::show("tweetfeed_shown")
+    })
+    
+    observeEvent(input$hidetweet, {
     shinyjs::hide("tweetfeed_shown")
-    shinyjs::show("tweetfeed_hidden")
-  })
-  
+      shinyjs::show("tweetfeed_hidden")
+    })
+    
   formData <- reactive({
-    data <- c(input$type, input$genus, input$day,as.character(Sys.time()))
-    data
-  })
-  
+      data <- c(input$type, input$genus, input$day,as.character(Sys.time()))
+      data
+    })
+    
   observeEvent(input$go, {
-    fileName <- sprintf("%s_%s",
-                        humanTime(),
-                        digest::digest(formData()))
-    shinyscreenshot::screenshot(filename=fileName)
-  })
+      fileName <- sprintf("%s_%s",
+                          humanTime(),
+                          digest::digest(formData()))
+      shinyscreenshot::screenshot(filename=fileName)
+    })
 }
 
 

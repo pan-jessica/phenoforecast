@@ -32,8 +32,8 @@ genusoi_list <- c(
 )
 
 
-evi_sta_list<-leaf_sta_list<-flower_sta_list<-vector(mode="list",length=length(genusoi_list))
-names(evi_sta_list)<-names(leaf_sta_list)<-names(flower_sta_list)<-genusoi_list
+evi_sta_list<-leaf_sta_list<-flower_sta_list<-pollen_sta_list<-vector(mode="list",length=length(genusoi_list))
+names(evi_sta_list)<-names(leaf_sta_list)<-names(flower_sta_list)<-names(pollen_sta_list)<-genusoi_list
 
 for (i in 1:length(genusoi_list)){
   genusoi<-genusoi_list[i]
@@ -83,22 +83,42 @@ for (i in 1:length(genusoi_list)){
   flower_sta_list[[i]]<-flower_sta
 }
 
-sta_list<-list(EVI=evi_sta_list,Leaf=leaf_sta_list,Flower=flower_sta_list)
+for (i in 1:length(genusoi_list)){
+  genusoi<-genusoi_list[i]
+  path_pollen<-paste0(path_app,"data/",genusoi,"/pollen/")
+  pollen_files<-list.files(path_pollen, full.names = T, pattern="\\.tif$") %>% sort()
+  
+  pollen_ras_list<-
+    foreach (r = 1:length(date_list),
+             .packages=c("tidyverse","raster"))  %dopar%  {
+               ras<-raster(pollen_files[r])
+               print(r)
+               ras
+             }
+  pollen_sta<-stack(pollen_ras_list)
+  pollen_sta_list[[i]]<-pollen_sta
+}
+
+sta_list<-list(EVI=evi_sta_list,Leaf=leaf_sta_list,Flower=flower_sta_list, Pollen=pollen_sta_list)
 
 ####
 pal_evi<-colorNumeric(palette = "Greens",  domain = c(0,1), na.color = "transparent")
 pal_leaf<-colorNumeric(palette = "Greens",  domain = c(0,1), na.color = "transparent")
 pal_flower<-colorNumeric(palette = "Reds",  domain = c(0,1), na.color = "transparent")
-pal<-list(EVI=pal_evi, Leaf=pal_leaf, Flower=pal_flower)
+pal_pollen<-colorNumeric(palette = "Reds",  domain = c(0,5), na.color = "transparent")
+pal<-list(EVI=pal_evi, Leaf=pal_leaf, Flower=pal_flower, Pollen=pal_pollen)
+maxlist<-list(EVI=1.0, Leaf=1.0, Flower=1.0, Pollen=5.0)
+minlist<-list(EVI=0, Leaf=0, Flower=0, Pollen=0)
 
 variable_list<-list(EVI="Enhanced Vegetation Index",
                     Leaf="Leafing status",
-                    Flower="Flowering status")
+                    Flower="Flowering status",
+                    Pollen="Pollen concentration (grains/m^3) fourth root")
 
 ############################
 ui<-fillPage(
-    shinyjs::useShinyjs(),
-    #shinyjs::inlineCSS(appCSS),
+  shinyjs::useShinyjs(),
+  #shinyjs::inlineCSS(appCSS),
   tags$style(type = "text/css", 
              "html, body {width:100%; height:100%;}"
   ),
@@ -116,7 +136,7 @@ ui<-fillPage(
                 
                 h1(id="title","PhenoForecast"),
                 selectInput("type", "Type",
-                            choices = c("EVI","Leaf", "Flower"),
+                            choices = c("EVI","Leaf", "Flower", "Pollen"),
                             selected =  "EVI"),
                 
                 selectInput("genus", "Genus",
@@ -162,18 +182,18 @@ ui<-fillPage(
   )
   ,
   shinyjs::hidden(
-  absolutePanel(id = "tweetfeed_hidden",
-                class = "panel panel-default",
-                fixed = TRUE,draggable = FALSE,
-                top = "auto", left = 100, right = "auto", bottom = 10,
-                width = 300, height = "auto",
-                style = "background-color: rgba(255,255,255,0);
+    absolutePanel(id = "tweetfeed_hidden",
+                  class = "panel panel-default",
+                  fixed = TRUE,draggable = FALSE,
+                  top = "auto", left = 100, right = "auto", bottom = 10,
+                  width = 300, height = "auto",
+                  style = "background-color: rgba(255,255,255,0);
                 border-color: rgba(255,255,255,0);
                 box-shadow: 0pt 0pt 0pt 0px",
-                
-                actionButton("showtweet", "Show Twitter feed", class = "btn-primary")
-                
-  )
+                  
+                  actionButton("showtweet", "Show Twitter feed", class = "btn-primary")
+                  
+    )
   ),
   
   absolutePanel(id = "misc",
@@ -203,22 +223,22 @@ ui<-fillPage(
                 
                 tags$div(id="cite",align="right",
                          '', tags$em('"PhenoForecast"'), ' by Yiluan Song'
-    ),
-    tags$a (id="link",target="_blank",
-href="http://phenoobservers.ucsc.edu/phenowatch/",
-tags$div (
-id="linktext",align="right",
-                 'Visit ', tags$em('"PhenoWatch"'), ''
-)
-),
-tags$a (id="link",target="_blank",
-href="http://phenoobservers.ucsc.edu/phenoinfo/",
-tags$div (
-id="linktext",align="right",
-                 'Visit ', tags$em('"PhenoInfo"'), ''
-)
-)
-)
+                ),
+                tags$a (id="link",target="_blank",
+                        href="http://phenoobservers.ucsc.edu/phenowatch/",
+                        tags$div (
+                          id="linktext",align="right",
+                          'Visit ', tags$em('"PhenoWatch"'), ''
+                        )
+                ),
+                tags$a (id="link",target="_blank",
+                        href="http://phenoobservers.ucsc.edu/phenoinfo/",
+                        tags$div (
+                          id="linktext",align="right",
+                          'Visit ', tags$em('"PhenoInfo"'), ''
+                        )
+                )
+  )
   # absolutePanel(id = "figures2", class = "panel panel-default", fixed = TRUE,draggable = TRUE, top = 60+280, left = "auto", right = 60, bottom = "auto",width = 300, height = "auto", 
   #               
   #               # h4("Spatial patterns"),
@@ -236,21 +256,28 @@ server<-function(input, output){
     r_type<-sta_list[[input$type,drop=F]]
     r_type_genusoi<-r_type[[input$genus]]
     r_type_genusoi_date<-r_type_genusoi[[input$day-14+length(date_list)]]
+    if (input$type=="Pollen") {
+      r_type_genusoi_date[r_type_genusoi_date<0]<-0
+      r_type_genusoi_date<-r_type_genusoi_date^(1/4)
+    }
+    r_type_genusoi_date_lim<-r_type_genusoi_date
+    r_type_genusoi_date_lim[r_type_genusoi_date_lim>maxlist[[input$type]]]<-maxlist[[input$type]]-1e-5
+    r_type_genusoi_date_lim[r_type_genusoi_date_lim<minlist[[input$type]]]<-minlist[[input$type]]+1e-5
     date_label <- tags$div(
       date_list[input$day-14+length(date_list)]
     )  
     
-    reactiveRaster <- reactive({r_type_genusoi_date})
+    reactiveRaster <- reactive({r_type_genusoi_date_lim})
     leafletProxy("raster_map") %>%
       clearImages() %>%
       clearControls() %>%
       addRasterImage(reactiveRaster(),colors = pal[[input$type]], opacity = 0.8, layerId = "map")%>%
-      addLegend(pal =  pal[[input$type]], values = seq(0,1,by=0.1),
+      addLegend(pal =  pal[[input$type]], values = seq(minlist[[input$type]],maxlist[[input$type]], length.out=6),
                 position = "bottomleft",title = "",#variable_list[[input$type]],
                 layerId = "map"
       ) %>% 
       addControl(date_label, position = "bottomleft") # %>% 
-      # addControl(site_label, position = "bottomright")
+    # addControl(site_label, position = "bottomright")
   })
   
   #Show popup on click
@@ -258,6 +285,10 @@ server<-function(input, output){
     r_type<-sta_list[[input$type,drop=F]]
     r_type_genusoi<-r_type[[input$genus]]
     r_type_genusoi_date<-r_type_genusoi[[input$day-14+length(date_list)]]
+    if (input$type=="Pollen") {
+      r_type_genusoi_date[r_type_genusoi_date<0]<-0
+      r_type_genusoi_date<-r_type_genusoi_date^(1/4)
+    }
     variable<-variable_list[[input$type]]
     
     click <- input$raster_map_click
@@ -296,6 +327,9 @@ server<-function(input, output){
     if (input$type=="Flower") {
       col_line<-"red"
     }
+    if (input$type=="Pollen") {
+      col_line<-"red"
+    }
     
     click <- input$raster_map_click
     lat<-(90+click$lat)%%180-90
@@ -310,7 +344,10 @@ server<-function(input, output){
                 value<-raster::extract(r_type_genusoi[[i]], sp )
                 value
               }
-    
+    if (input$type=="Pollen") {
+      ts[ts<0]<-0
+      ts<-ts^(1/4)
+    }
     ts_df<-data.frame(ts, date_list)
     colnames(ts_df)<-c("value", "date")
     if (nrow (ts_df)>0) {
@@ -321,7 +358,7 @@ server<-function(input, output){
           geom_vline(aes(xintercept=date_list[0-14+length(date_list)]), alpha=0.5)+
           # geom_smooth(aes(x=date, y=value))+
           theme_light()+
-          ylim(-0.1,1.1)+
+          ylim(minlist[[input$type]]-0.1,maxlist[[input$type]]+0.1)+
           xlab("date")+
           ylab(variable)+
           ggtitle(paste0("Longitude: ", round(lng,2), ", Latitude: ", round(lat,2)))
@@ -337,26 +374,26 @@ server<-function(input, output){
   })
   
   observeEvent(input$showtweet, {
-      shinyjs::hide("tweetfeed_hidden")
-      shinyjs::show("tweetfeed_shown")
-    })
-    
-    observeEvent(input$hidetweet, {
+    shinyjs::hide("tweetfeed_hidden")
+    shinyjs::show("tweetfeed_shown")
+  })
+  
+  observeEvent(input$hidetweet, {
     shinyjs::hide("tweetfeed_shown")
-      shinyjs::show("tweetfeed_hidden")
-    })
-    
+    shinyjs::show("tweetfeed_hidden")
+  })
+  
   formData <- reactive({
-      data <- c(input$type, input$genus, input$day,as.character(Sys.time()))
-      data
-    })
-    
+    data <- c(input$type, input$genus, input$day,as.character(Sys.time()))
+    data
+  })
+  
   observeEvent(input$go, {
-      fileName <- sprintf("%s_%s",
-                          humanTime(),
-                          digest::digest(formData()))
-      shinyscreenshot::screenshot(filename=fileName)
-    })
+    fileName <- sprintf("%s_%s",
+                        humanTime(),
+                        digest::digest(formData()))
+    shinyscreenshot::screenshot(filename=fileName)
+  })
 }
 
 
